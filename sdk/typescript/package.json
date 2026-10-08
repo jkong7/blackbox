@@ -1,0 +1,11 @@
+{
+  "name": "blackbox-sdk",
+  "version": "0.1.0",
+  "description": "Zero dependency tracing SDK for blackbox, the local flight recorder for AI agents",
+  "type": "module",
+  "main": "index.ts",
+  "types": "index.ts",
+  "exports": { ".": "./index.ts" },
+  "engines": { "node": ">=22.6" },
+  "license": "MIT"
+}
