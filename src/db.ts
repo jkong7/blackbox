@@ -98,6 +98,8 @@ create table if not exists traces (
 create index if not exists traces_start on traces(start_ns desc);
 create index if not exists traces_session on traces(session_id, start_ns);
 create index if not exists traces_updated on traces(updated_at);
+create index if not exists traces_agent on traces(agent_names, start_ns);
+create index if not exists traces_unanalyzed on traces(analyzed_at) where analyzed_at is null;
 
 create table if not exists sessions (
   session_id text primary key,

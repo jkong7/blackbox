@@ -4,6 +4,7 @@ import { getDb, type DB } from './db.ts';
 import { ingestSpanRows, flush } from './ingest.ts';
 import { blankSpan } from './normalize.ts';
 import { invalidatePrices } from './pricing.ts';
+import { deleteTraceText } from './fts.ts';
 import { percentile, hexId, nowNs, toJson, num, str, maybeJson } from './util.ts';
 import type { SpanRow } from './types.ts';
 import { KINDS } from './types.ts';
@@ -157,22 +158,22 @@ export function listTraces(db: DB, q: URLSearchParams): Row {
   if (q.get('flagged') === '1') where.push('t.signal_count > 0');
   const model = q.get('model');
   if (model) {
-    where.push(`exists(select 1 from spans s where s.trace_id = t.trace_id and s.model = ?)`);
+    where.push(`t.trace_id in (select trace_id from spans where model = ?)`);
     params.push(model);
   }
   const agent = q.get('agent');
   if (agent) {
-    where.push(`exists(select 1 from spans s where s.trace_id = t.trace_id and s.agent_name = ?)`);
+    where.push(`t.trace_id in (select trace_id from spans where agent_name = ?)`);
     params.push(agent);
   }
   const tool = q.get('tool');
   if (tool) {
-    where.push(`exists(select 1 from spans s where s.trace_id = t.trace_id and s.tool_name = ?)`);
+    where.push(`t.trace_id in (select trace_id from spans where tool_name = ?)`);
     params.push(tool);
   }
   const kind = q.get('kind');
   if (kind) {
-    where.push(`exists(select 1 from spans s where s.trace_id = t.trace_id and s.kind = ?)`);
+    where.push(`t.trace_id in (select trace_id from spans where kind = ?)`);
     params.push(kind);
   }
   const source = q.get('source');
@@ -522,7 +523,7 @@ export function registerApi(r: Router): void {
   r.delete('/api/traces/:id', (_q, _r, ctx) => {
     const db = getDb();
     const id = ctx.params.id;
-    db.prepare('delete from spans_fts where trace_id = ?').run(id);
+    deleteTraceText(db, id);
     db.prepare('delete from spans where trace_id = ?').run(id);
     db.prepare('delete from signals where trace_id = ?').run(id);
     db.prepare('delete from scores where trace_id = ?').run(id);

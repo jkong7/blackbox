@@ -1,5 +1,6 @@
 import type { RawLog } from '../otlp.ts';
 import type { DB } from '../db.ts';
+import { indexSpanText } from '../fts.ts';
 import type { SpanRow } from '../types.ts';
 import { blankSpan } from '../normalize.ts';
 import { memoryOpFromName } from '../normalize.ts';
@@ -179,11 +180,7 @@ function patchSpan(db: DB, span: Row, patch: Row): void {
   if ('output' in patch) patch.output_preview = outputPreviewOf(maybeJson(patch.output));
   const all = Object.keys(patch).filter((k) => patch[k] !== undefined);
   db.prepare(`update spans set ${all.map((k) => `${k} = ?`).join(', ')} where span_id = ?`).run(...all.map((k) => patch[k]), span.span_id);
-  if ('input' in patch || 'output' in patch) {
-    const cur = db.prepare('select span_id, trace_id, name, input, output from spans where span_id = ?').get(span.span_id) as Row;
-    db.prepare('delete from spans_fts where span_id = ?').run(span.span_id);
-    db.prepare('insert into spans_fts(span_id, trace_id, name, input, output) values(?,?,?,?,?)').run(cur.span_id, cur.trace_id, cur.name, (cur.input ?? '').slice(0, 20000), (cur.output ?? '').slice(0, 20000));
-  }
+  if ('input' in patch || 'output' in patch) indexSpanText(db, span.span_id);
 }
 
 export function enrichClaudeCodeTrace(db: DB, traceId: string): void {

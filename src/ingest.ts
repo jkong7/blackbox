@@ -5,6 +5,7 @@ import { SPAN_COLUMNS } from './types.ts';
 import type { RawLog, RawMetricPoint, RawSpan } from './otlp.ts';
 import { normalizeSpan } from './normalize.ts';
 import { costFor } from './pricing.ts';
+import { indexSpanText } from './fts.ts';
 import { emit } from './bus.ts';
 import { clip, nowMs, str } from './util.ts';
 import { claudeCodeLogToSpans, enrichClaudeCodeTrace } from './sources/claudeCode.ts';
@@ -89,15 +90,10 @@ export function flush(db: DB = getDb()): string[] {
     db.exec('begin immediate');
     try {
       const up = db.prepare(upsertSql);
-      const ftsDel = db.prepare('delete from spans_fts where span_id = ?');
-      const ftsIns = db.prepare('insert into spans_fts(span_id, trace_id, name, input, output) values(?,?,?,?,?)');
       for (const s of spans) {
         if (s.cost_usd == null && s.model) s.cost_usd = costFor(db, s.model, s);
         up.run(...SPAN_COLUMNS.map((c) => s[c] as any), now);
-        if (s.input || s.output) {
-          ftsDel.run(s.span_id);
-          ftsIns.run(s.span_id, s.trace_id, s.name, s.input ? s.input.slice(0, 20000) : '', s.output ? s.output.slice(0, 20000) : '');
-        }
+        if (s.input || s.output) indexSpanText(db, s.span_id);
         touched.add(s.trace_id);
       }
       const logIns = db.prepare('insert into logs(ts_ns, name, severity, body, trace_id, span_id, session_id, attributes, resource) values(?,?,?,?,?,?,?,?,?)');
