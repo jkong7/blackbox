@@ -1,0 +1,20 @@
+.issues-tbl .issue-title {
+  min-width: 260px;
+  max-width: 560px;
+  line-height: 1.4;
+}
+
+.issues-tbl .issue-actions {
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.issue-types {
+  gap: 6px;
+}
+
+.issue-types .chip {
+  height: 24px;
+  padding: 0 9px;
+  font-family: inherit;
+}
