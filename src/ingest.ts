@@ -10,6 +10,7 @@ import { emit } from './bus.ts';
 import { clip, nowMs, str, maybeJson } from './util.ts';
 import { outputPreviewOf } from './messages.ts';
 import { claudeCodeLogToSpans, enrichClaudeCodeTrace } from './sources/claudeCode.ts';
+import { codexLogToSpans } from './sources/codex.ts';
 
 interface Pending {
   spans: SpanRow[];
@@ -90,6 +91,7 @@ export function flush(db: DB = getDb()): string[] {
   try {
     for (const l of logs) {
       for (const s of claudeCodeLogToSpans(l)) spans.push(s);
+      for (const s of codexLogToSpans(l)) spans.push(s);
     }
     const now = nowMs();
     db.exec('begin immediate');
@@ -157,7 +159,7 @@ interface Agg {
 }
 
 export function rollupTrace(db: DB, traceId: string, now = nowMs()): string | null {
-  const synth = db.prepare("select span_id from spans where trace_id = ? and parent_id is null and source = 'claude-code-logs'").get(traceId) as { span_id: string } | undefined;
+  const synth = db.prepare("select span_id from spans where trace_id = ? and parent_id is null and source in ('claude-code-logs', 'codex-logs')").get(traceId) as { span_id: string } | undefined;
   if (synth) {
     db.prepare(
       `update spans set
