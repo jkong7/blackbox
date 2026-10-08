@@ -8,14 +8,14 @@ import { sha, str, num, maybeJson, toJson } from '../util.ts';
 import { previewOf, outputPreviewOf } from '../messages.ts';
 
 function eventName(l: RawLog): string | null {
-  const n = str(l.attributes['event.name']) ?? l.name ?? (typeof l.body === 'string' ? l.body : null);
+  const n = str(l.attributes['event.name']) ?? str(l.name) ?? (typeof l.body === 'string' ? l.body : null);
   if (!n) return null;
   return n.replace(/^claude_code\./, '');
 }
 
 function isClaudeCode(l: RawLog): boolean {
   const svc = str(l.resource['service.name']) ?? '';
-  return svc === 'claude-code' || (l.scope ?? '').includes('claude_code') || (l.name ?? '').startsWith('claude_code.') || (typeof l.body === 'string' && l.body.startsWith('claude_code.'));
+  return svc === 'claude-code' || (l.scope ?? '').includes('claude_code') || String(l.name ?? '').startsWith('claude_code.') || (typeof l.body === 'string' && l.body.startsWith('claude_code.'));
 }
 
 function tsNs(l: RawLog): number {

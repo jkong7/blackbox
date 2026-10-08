@@ -94,9 +94,15 @@ function serveStatic(path: string, res: import('node:http').ServerResponse): boo
 
 export function startServer(port: number, router = buildRouter(), opts: { ui?: boolean } = {}): Promise<Server> {
   const server = createServer(async (req, res) => {
-    const url = new URL(req.url ?? '/', 'http://localhost');
-    if (req.method === 'OPTIONS') return cors(res);
-    const m = router.match(req.method ?? 'GET', url.pathname);
+    let url: URL;
+    let m: ReturnType<Router['match']>;
+    try {
+      url = new URL(req.url ?? '/', 'http://localhost');
+      if (req.method === 'OPTIONS') return cors(res);
+      m = router.match(req.method ?? 'GET', url.pathname);
+    } catch {
+      return sendJson(res, 400, { error: 'bad request url' });
+    }
     if (m) {
       let cached: Buffer | null = null;
       const ctx: Ctx = {
@@ -120,7 +126,11 @@ export function startServer(port: number, router = buildRouter(), opts: { ui?: b
       }
       return;
     }
-    if (opts.ui !== false && req.method === 'GET' && !url.pathname.startsWith('/api/') && serveStatic(url.pathname, res)) return;
+    try {
+      if (opts.ui !== false && req.method === 'GET' && !url.pathname.startsWith('/api/') && serveStatic(url.pathname, res)) return;
+    } catch {
+      return sendJson(res, 400, { error: 'bad path' });
+    }
     sendJson(res, 404, { error: 'not found' });
   });
   server.keepAliveTimeout = 65000;

@@ -30,7 +30,11 @@ function schedule(): void {
   if (timer) return;
   timer = setTimeout(() => {
     timer = null;
-    flush();
+    try {
+      flush();
+    } catch (e) {
+      console.error('[blackbox] flush failed, batch dropped', e);
+    }
   }, 100);
 }
 
@@ -92,7 +96,7 @@ export function flush(db: DB = getDb()): string[] {
     try {
       const up = db.prepare(upsertSql);
       for (const s of spans) {
-        if (s.cost_usd == null && s.model) s.cost_usd = costFor(db, s.model, s);
+        if (s.cost_usd == null && s.model && (s.kind === 'llm' || s.kind === 'embedding')) s.cost_usd = costFor(db, s.model, s);
         up.run(...SPAN_COLUMNS.map((c) => s[c] as any), now);
         if (s.input || s.output) indexSpanText(db, s.span_id);
         touched.add(s.trace_id);
@@ -170,9 +174,11 @@ export function rollupTrace(db: DB, traceId: string, now = nowMs()): string | nu
     .prepare(
       `select min(start_ns) start_ns, max(coalesce(end_ns, start_ns)) end_ns, count(*) span_count,
         sum(kind = 'llm') llm_calls, sum(kind in ('tool','mcp','memory')) tool_calls, sum(status = 'error') error_count,
-        coalesce(sum(input_tokens),0) input_tokens, coalesce(sum(output_tokens),0) output_tokens,
-        coalesce(sum(cache_read_tokens),0) cache_read_tokens, coalesce(sum(cache_write_tokens),0) cache_write_tokens,
-        coalesce(sum(cost_usd),0) cost_usd, max(session_id) session_id, max(user_id) user_id, max(project) project
+        coalesce(sum(case when kind in ('llm','embedding') then input_tokens end),0) input_tokens,
+        coalesce(sum(case when kind in ('llm','embedding') then output_tokens end),0) output_tokens,
+        coalesce(sum(case when kind in ('llm','embedding') then cache_read_tokens end),0) cache_read_tokens,
+        coalesce(sum(case when kind in ('llm','embedding') then cache_write_tokens end),0) cache_write_tokens,
+        coalesce(sum(case when kind in ('llm','embedding') or not exists (select 1 from spans c where c.parent_id = spans.span_id) then cost_usd end),0) cost_usd, max(session_id) session_id, max(user_id) user_id, max(project) project
        from spans where trace_id = ?`,
     )
     .get(traceId) as unknown as Agg;

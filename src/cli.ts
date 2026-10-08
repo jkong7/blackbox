@@ -33,6 +33,8 @@ environment
 `;
 
 async function serve() {
+  process.on('uncaughtException', (e) => console.error('[blackbox] uncaught', e));
+  process.on('unhandledRejection', (e) => console.error('[blackbox] unhandled rejection', e));
   const db = getDb();
   seedPrices(db);
   const { startServer, buildRouter } = await import('./server.ts');

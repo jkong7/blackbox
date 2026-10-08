@@ -299,10 +299,11 @@ function flattenLogs(obj: Any): RawLog[] {
         const attributes = kvs(r.attributes);
         const body = anyValue(r.body);
         const eventName = pick(r, 'eventName', 'event_name') || attributes['event.name'] || null;
+        const sev = pick(r, 'severityText', 'severity_text');
         out.push({
           timeNs: toNs(pick(r, 'timeUnixNano', 'time_unix_nano')) || toNs(pick(r, 'observedTimeUnixNano', 'observed_time_unix_nano')) || Date.now() * 1e6,
-          name: (eventName as string) ?? (typeof body === 'string' && body.length < 80 ? body : null),
-          severity: pick(r, 'severityText', 'severity_text') || null,
+          name: eventName != null ? (typeof eventName === 'string' ? eventName : JSON.stringify(eventName)) : typeof body === 'string' && body.length < 80 ? body : null,
+          severity: sev ? String(sev) : null,
           body,
           attributes,
           resource,
@@ -337,6 +338,7 @@ function flattenMetrics(obj: Any): RawMetricPoint[] {
             let value: number;
             if (kind === 'gauge' || kind === 'sum') value = Number(pick(p, 'asDouble', 'as_double') ?? pick(p, 'asInt', 'as_int') ?? 0);
             else value = Number(p.sum ?? 0);
+            if (!Number.isFinite(value)) continue;
             out.push({
               name,
               unit,

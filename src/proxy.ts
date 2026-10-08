@@ -729,7 +729,14 @@ function handle(req: IncomingMessage, res: ServerResponse, record: (row: SpanRow
     return;
   }
   const base = upstreamBase(route.provider);
-  const target = new URL(base.pathname.replace(/\/+$/, '') + route.path, base);
+  let target: URL;
+  try {
+    target = new URL(base.pathname.replace(/\/+$/, '') + route.path.replace(/^\/+/, '/'), base);
+  } catch {
+    res.writeHead(400, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ error: 'bad request url' }));
+    return;
+  }
   const headers = forwardHeaders(req.headers);
   const mod = target.protocol === 'http:' ? httpRequest : httpsRequest;
   const recording = route.record && req.method === 'POST';
