@@ -167,7 +167,7 @@ Measured on an M-series Mac with the demo generator (normalization, rollups and 
 ## Tests
 
 ```bash
-npm test                 # 50 tests: normalization, ingest, signals, evals, proxy, MCP, regressions
+npm test                 # 52 tests: normalization, ingest, signals, evals, proxy, MCP, Codex, regressions
 npm run typecheck
 npx tsc --noEmit -p ui/tsconfig.json
 ```
