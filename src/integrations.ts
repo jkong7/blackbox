@@ -149,7 +149,7 @@ export function connectSnippets(base: string, proxyPort = Number(process.env.BLA
         `exporter = { otlp-http = { endpoint = "${base}/v1/logs", protocol = "binary" } }`,
         `trace_exporter = { otlp-http = { endpoint = "${base}/v1/traces", protocol = "binary" } }`,
       ].join('\n'),
-      notes: ['Codex emits codex.* log events (api_request, tool_decision, tool_result, user_prompt). To capture full model traffic as well, set OPENAI_BASE_URL to the proxy.'],
+      notes: ['Codex emits codex.* log events (user_prompt, sse_event, tool_decision, tool_result). blackbox builds one trace per turn from them, with model calls, tokens, TTFT and tool calls. Leave the Codex trace_exporter off, because its internal spans are noise. To capture full model traffic as well, set OPENAI_BASE_URL to the proxy.'],
     },
     {
       id: 'otel',

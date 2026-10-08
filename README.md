@@ -10,7 +10,7 @@ It runs as one Node process on your machine with a SQLite file. There is no acco
 
 I researched the current LLM observability and eval market (LangSmith, Langfuse, Arize Phoenix and AX, Braintrust, W&B Weave, Datadog, Galileo, Raindrop, Laminar, Patronus, Judgment Labs and others). The report is in `~/dev/reports/LLM observability and eval market.md`. They all record a tree of spans and attach scores to it. The things I wanted and could not find in one local tool were:
 
-- Claude Code, Codex and any OTel SDK working with zero code changes
+- Claude Code, Codex, loom, engram and any OTel SDK working with zero code changes
 - signals that catch silent agent failures (loops, hallucinated success, prompt injection followed by data access) with no labeled data
 - MCP tool definition drift and the token cost of the toolset
 - memory reads and writes as first-class spans
@@ -41,6 +41,27 @@ claude
 ```
 
 `env claude-code --json` prints the same thing as a `settings.json` env block. With both enabled you get one trace per prompt: the `claude_code.interaction` root, every LLM request with full messages, tool definitions, cache tokens and time to first token, every tool call with its input and result, permission waits, subagents, and Claude Code's exact billed cost per request. If only the log events are enabled, blackbox builds the trace from them.
+
+Set `CLAUDE_CODE_PROPAGATE_TRACEPARENT=1` as well. Claude Code then hands its trace context to hooks, so memory hooks that forward `TRACEPARENT` (engram does) show up inside the `claude_code.interaction` trace instead of as separate traces.
+
+### Codex CLI
+
+```bash
+node src/cli.ts env codex   # prints the [otel] block for ~/.codex/config.toml
+```
+
+Codex exports `codex.*` log events. blackbox turns them into one trace per turn (`codex.turn`), with a `chat` span per model response (input, cached, output and reasoning tokens, TTFT), a span per tool call (built-in tools, MCP tools under their server, memory tools as memory spans) and tool decisions. The Codex `conversation.id` becomes the session. Leave Codex's own `trace_exporter` off: its spans are internal Rust tracing and add hundreds of spans per turn.
+
+### loom and engram
+
+[loom](../loom) and [engram](../engram) export GenAI spans natively. Point both at blackbox:
+
+```bash
+OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4318 loom -p "..."
+# ~/.engram/config.json: "telemetry": { "endpoint": "http://127.0.0.1:4318" }
+```
+
+loom propagates `traceparent` into engram's REST and MCP calls. A loom run therefore lands as one trace: agent, LLM calls, tools, loom's memory prefetch, and inside them engram's recall, search, write and capture spans, with the recall gate's hits and ids. engram's background extraction jobs show up as `invoke_agent engram-extractor` traces with their LLM calls, grouped under the session they distilled. The Memory page then shows reads and writes from every harness that uses engram.
 
 ### LLM proxy
 
