@@ -289,7 +289,7 @@ export function normalizeSpan(s: RawSpan, project = 'default'): SpanRow {
   }
 
   const session = str(a(at, 'session.id', 'gen_ai.conversation.id', 'langfuse.session.id', 'ai.telemetry.metadata.sessionId', 'thread_id', 'metadata.thread_id', 'langsmith.metadata.thread_id', 'conversation.id', 'traceloop.association.properties.session_id', 'blackbox.session_id')) ?? str(a(res, 'session.id', 'gen_ai.conversation.id'));
-  const user = str(a(at, 'user.id', 'enduser.id', 'langfuse.user.id', 'ai.telemetry.metadata.userId', 'traceloop.association.properties.user_id', 'user.account_uuid', 'blackbox.user_id')) ?? str(a(res, 'user.id', 'enduser.id'));
+  const user = (source === 'claude-code' ? str(at['user.email']) : null) ?? str(a(at, 'user.id', 'enduser.id', 'langfuse.user.id', 'ai.telemetry.metadata.userId', 'traceloop.association.properties.user_id', 'user.account_uuid', 'blackbox.user_id')) ?? str(a(res, 'user.id', 'enduser.id'));
   const agentName = str(a(at, 'gen_ai.agent.name', 'agent.name', 'ai.telemetry.functionId', 'graph.node.id', 'subagent_type', 'agent_type')) ?? (s.name === 'claude_code.interaction' ? 'claude-code' : null) ?? (kind === 'agent' && source !== 'claude-code' ? s.name.replace(/^invoke_agent\s+/, '') : null);
 
   const startNs = s.startNs || Date.now() * 1e6;

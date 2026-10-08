@@ -181,6 +181,7 @@ export function rollupTrace(db: DB, traceId: string, now = nowMs()): string | nu
     .prepare('select span_id, parent_id, name, kind, agent_name, model, source, input_preview, output_preview, start_ns from spans where trace_id = ? order by start_ns')
     .all(traceId) as { span_id: string; parent_id: string | null; name: string; kind: string; agent_name: string | null; model: string | null; source: string; input_preview: string | null; output_preview: string | null; start_ns: number }[];
   const ids = new Set(spans.map((s) => s.span_id));
+  inheritAgents(db, spans);
   const roots = spans.filter((s) => !s.parent_id || !ids.has(s.parent_id));
   const root = roots[0] ?? spans[0];
   const llms = spans.filter((s) => s.kind === 'llm');
@@ -229,6 +230,24 @@ export function rollupTrace(db: DB, traceId: string, now = nowMs()): string | nu
   );
   if (agg.session_id) db.prepare('update spans set session_id = ? where trace_id = ? and session_id is null').run(agg.session_id, traceId);
   return agg.session_id;
+}
+
+function inheritAgents(db: DB, spans: { span_id: string; parent_id: string | null; agent_name: string | null; kind: string }[]): void {
+  const byId = new Map(spans.map((s) => [s.span_id, s]));
+  const set = db.prepare('update spans set agent_name = ? where span_id = ?');
+  const resolve = (s: { span_id: string; parent_id: string | null; agent_name: string | null }, depth = 0): string | null => {
+    if (s.agent_name || depth > 64) return s.agent_name;
+    const p = s.parent_id ? byId.get(s.parent_id) : undefined;
+    return p ? resolve(p, depth + 1) : null;
+  };
+  for (const s of spans) {
+    if (s.agent_name) continue;
+    const a = resolve(s);
+    if (a) {
+      s.agent_name = a;
+      set.run(a, s.span_id);
+    }
+  }
 }
 
 export function backfillToolResults(db: DB, traceId: string): void {

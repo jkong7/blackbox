@@ -448,10 +448,9 @@ export function seedDemo(opts: DemoOptions = {}): { traces: number; spans: numbe
   };
   const time = (i: number) => start + (i / total) * (now - start - 600e3) + between(-1800e3, 1800e3);
 
-  let i = 0;
   while (made < total) {
     const r = rand();
-    const ts = Math.min(now - 60e3, time(i++));
+    const ts = Math.min(now - 60e3, time(made));
     if (r < 0.34) {
       const user = pick(CUSTOMERS);
       const session = 'sess_' + hex(10);

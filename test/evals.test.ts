@@ -375,8 +375,8 @@ test('explain stores and serves a root cause analysis', async () => {
   assert.equal(e.failure_modes.length, 1);
   assert.equal(e.judge_model, 'mock');
   const got = getExplanation(db, 't-explain');
-  assert.equal(got.summary, e.summary);
-  assert.throws(() => getExplanation(db, 'nope'));
+  assert.equal(got?.summary, e.summary);
+  assert.equal(getExplanation(db, 'nope'), null);
 });
 
 test('budget cap fails judge jobs with a clear error', async () => {

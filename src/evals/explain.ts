@@ -71,8 +71,8 @@ export async function explainTrace(db: DB, traceId: string): Promise<Row> {
   return out;
 }
 
-export function getExplanation(db: DB, traceId: string): Row {
+export function getExplanation(db: DB, traceId: string): Row | null {
   const row = db.prepare('select json from explanations where trace_id = ?').get(traceId) as Row | undefined;
-  if (!row) throw new HttpError(404, 'no explanation for this trace');
+  if (!row) return null;
   return safeJson(row.json) as Row;
 }

@@ -292,10 +292,10 @@ export function listSessions(db: DB, q: URLSearchParams): Row {
   if (items.length) {
     const ids = items.map((s) => s.session_id);
     const ph = ids.map(() => '?').join(',');
-    const sig = db.prepare(`select session_id, type, count(*) n from signals where session_id in (${ph}) group by session_id, type`).all(...ids) as Row[];
+    const sig = db.prepare(`select session_id, type, count(*) n, min(case severity when 'high' then 0 when 'medium' then 1 else 2 end) sev from signals where session_id in (${ph}) group by session_id, type`).all(...ids) as Row[];
     const by = new Map(items.map((s) => [s.session_id, s]));
     for (const s of items) s.signals = [];
-    for (const g of sig) by.get(g.session_id)?.signals.push({ type: g.type, count: g.n });
+    for (const g of sig) by.get(g.session_id)?.signals.push({ type: g.type, count: g.n, severity: ['high', 'medium', 'low'][g.sev] });
   }
   return { items, next: items.length === limit ? items[items.length - 1].end_ns : null };
 }
@@ -323,7 +323,7 @@ export function getSession(db: DB, id: string): Row {
     };
   });
   const scores = db.prepare('select * from scores where session_id = ? and trace_id is null order by created_at').all(id);
-  const signals = db.prepare('select * from signals where session_id = ? order by created_at').all(id);
+  const signals = (db.prepare('select * from signals where session_id = ? order by created_at').all(id) as Row[]).map((s) => ({ ...s, detail: maybeJson(s.detail) }));
   return { session, traces, turns, scores, signals };
 }
 

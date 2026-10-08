@@ -32,7 +32,7 @@ Trace (list rows): columns of `traces` plus `signals: [{type, severity}]` and `s
 | GET | `/api/traces/:id` | | `{trace, spans, scores, signals, annotations, session_nav: {prev, next}, context_windows: {model: tokens}}` |
 | DELETE | `/api/traces/:id` | | |
 | GET | `/api/spans/:id` | | span |
-| GET | `/api/sessions` | `q`, `project`, `limit`, `cursor` | `{items, next}`; items carry `signals: [{type, count}]` |
+| GET | `/api/sessions` | `q`, `project`, `limit`, `cursor` | `{items, next}`; items carry `signals: [{type, count, severity}]` |
 | GET | `/api/sessions/:id` | | `{session, traces, turns: [{trace_id, start_ns, user, assistant, tools, cost_usd, duration_ms, error_count, signals, scores}], scores, signals}` |
 | GET | `/api/issues` | `window`, `status=open|resolved|ignored`, `project` | `{items: [{fingerprint, type, severity, title, count, traces, first_seen, last_seen, sample_trace_id, status}]}` |
 | POST | `/api/issues/:fingerprint/status` | `{status}` | |
@@ -58,7 +58,8 @@ Score: `{id, trace_id, span_id, session_id, name, value (0..1 or null), label, r
 
 | Method | Path | Body / query | Returns |
 |---|---|---|---|
-| GET | `/api/judge/status` | | `{provider: 'anthropic'|'claude-cli'|'none', model, spend_today_usd, daily_cap_usd}` |
+| GET | `/api/judge/status` | | `{provider: 'anthropic'|'claude-cli'|'mock'|'none', model, spend_today_usd, daily_cap_usd, concurrency, active, queued}` |
+| GET | `/api/evaluators/:id` | | evaluator |
 | GET | `/api/evaluators` | | `{items}` |
 | POST | `/api/evaluators` | evaluator without id | evaluator |
 | PUT | `/api/evaluators/:id` | partial | evaluator |
@@ -67,11 +68,11 @@ Score: `{id, trace_id, span_id, session_id, name, value (0..1 or null), label, r
 | POST | `/api/evaluators/test` | `{evaluator, trace_id}` | `{score}` (sync, not stored) |
 | GET | `/api/evaluators/:id/calibration` | | `{n, tp, fp, tn, fn, tpr, tnr, precision, accuracy, kappa, disagreements: [{trace_id, judge_label, human_label, reasoning}]}` |
 | GET | `/api/rules` | | `{items}` with `evaluator_name` |
-| POST | `/api/rules` | `{name, evaluator_id, target, filter: {project?, agent?, model?, tool?, status?, signal?, source?, name_contains?}, sampling: 0..1, delay_ms, enabled}` | rule |
+| POST | `/api/rules` | `{name, evaluator_id, target, filter: {project?, agent?, model?, tool?, status?, signal?, source?, name_contains?}, sampling: 0..1, delay_ms, enabled: boolean}` | rule |
 | PATCH | `/api/rules/:id` | partial | rule |
 | DELETE | `/api/rules/:id` | | |
 | POST | `/api/rules/:id/backfill` | `{limit}` | `{queued}` |
-| GET | `/api/jobs` | `status`, `limit` | `{items, counts: {queued, running, done, failed}}` |
+| GET | `/api/jobs` | `status`, `limit` | `{items, counts: {queued, running, done, failed, skipped}}` |
 | GET | `/api/scores` | `name`, `evaluator_id`, `trace_id`, `source`, `limit` | `{items}` |
 | POST | `/api/scores` | `{trace_id, span_id?, session_id?, name, value?, label?, reasoning?, source?}` | score |
 | GET | `/api/annotations/queues` | | `{items: [{queue, pending, done}]}` |
@@ -81,12 +82,21 @@ Score: `{id, trace_id, span_id, session_id, name, value (0..1 or null), label, r
 | GET | `/api/datasets` | | `{items}` with `item_count` |
 | POST | `/api/datasets` | `{name, description?}` | dataset |
 | GET | `/api/datasets/:id` | | `{dataset, items}` |
-| POST | `/api/datasets/:id/items` | `{items: [{input, expected?, metadata?}]}` or `{trace_ids: string[]}` | `{added}` |
+| POST | `/api/datasets/:id/items` | `{items: [{input, expected?, metadata?}]}`, `{trace_ids: string[]}` or `{jsonl: string}` | `{added}` |
 | DELETE | `/api/datasets/:id/items/:itemId` | | |
 | DELETE | `/api/datasets/:id` | | |
 | GET | `/api/experiments` | `dataset_id` | `{items}` with `summary` |
 | POST | `/api/experiments` | `{dataset_id, name, target: {type: 'command', command} | {type: 'http', url} | {type: 'llm', model, system?}, evaluator_ids, baseline_id?}` | experiment (runs async) |
 | GET | `/api/experiments/:id` | | `{experiment, runs: [{id, item_id, input, expected, output, latency_ms, cost_usd, error, scores}]}` |
-| GET | `/api/experiments/:id/compare` | `baseline` | `{rows: [{item_id, input, expected, a, b, verdict: 'improved'|'regressed'|'tie'|'tradeoff'}], summary: {evaluator_name: {a_avg, b_avg, improved, regressed, ties}}}` |
+| GET | `/api/experiments/:id/compare` | `baseline` (required unless the experiment has one) | `{rows: [{item_id, input, expected, a: {output, error, scores: {name: value}}, b, verdict: 'improved'|'regressed'|'tie'|'tradeoff'}], summary: {evaluator_name: {a_avg, b_avg, improved, regressed, ties}}}`; `a` is the baseline |
+| DELETE | `/api/experiments/:id` | | |
 | POST | `/api/traces/:id/explain` | | `{summary, outcome, root_cause, failure_modes: [{mode, span_id, evidence}], suggestions, judge_model}` |
-| GET | `/api/traces/:id/explain` | | last explanation or 404 |
+| GET | `/api/traces/:id/explain` | | last explanation or `null` |
+
+## Integrations
+
+| Method | Path | Body | Returns |
+|---|---|---|---|
+| POST | `/api/mcp/tools` | `{server, tools: [{name, description, inputSchema}]}` | `{added, changed, tokens}` |
+| GET | `/api/mcp/tools` | | `{items}` |
+| GET | `/api/connect` | | setup snippets for Claude Code, Codex, OTel SDKs, the proxy, the MCP wrapper and server, and the SDKs |
