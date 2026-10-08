@@ -18,10 +18,10 @@ interface Pending {
 const pending: Pending = { spans: [], logs: [], metrics: [] };
 let timer: NodeJS.Timeout | null = null;
 let flushing = false;
-let flushHook: ((traceIds: string[]) => void) | null = null;
+const flushHooks: ((traceIds: string[]) => void)[] = [];
 
 export function onFlush(fn: (traceIds: string[]) => void): void {
-  flushHook = fn;
+  flushHooks.push(fn);
 }
 
 function schedule(): void {
@@ -126,7 +126,13 @@ export function flush(db: DB = getDb()): string[] {
   const ids = [...touched];
   if (ids.length) {
     emit({ type: 'traces', ids });
-    flushHook?.(ids);
+    for (const h of flushHooks) {
+      try {
+        h(ids);
+      } catch (e) {
+        console.error('[blackbox] flush hook', e);
+      }
+    }
   }
   if (pending.spans.length || pending.logs.length || pending.metrics.length) schedule();
   return ids;
