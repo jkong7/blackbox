@@ -6,6 +6,7 @@ import { Router, readBody, sendJson, cors, HttpError, type Ctx } from './http.ts
 import { decodeTraces, decodeLogs, decodeMetrics } from './otlp.ts';
 import { ingestRawSpans, ingestLogs, ingestMetrics } from './ingest.ts';
 import { registerApi } from './api.ts';
+import { registerEvalApi } from './evals/index.ts';
 import { bus, type BusEvent } from './bus.ts';
 
 const UI_DIR = fileURLToPath(new URL('../ui/dist/', import.meta.url));
@@ -69,6 +70,7 @@ export function buildRouter(): Router {
     });
   });
   registerApi(r);
+  registerEvalApi(r);
   return r;
 }
 
