@@ -20,10 +20,10 @@ const RUNAWAY_USD = Number(process.env.BLACKBOX_RUNAWAY_USD || 1);
 const QUIET_MS = Number(process.env.BLACKBOX_QUIET_MS || 4000);
 
 const REFUSAL = /\b(I can(?:no|')t (?:help|assist|do that|provide|comply)|I(?:'m| am) (?:not able|unable) to (?:help|assist|provide)|I won't be able to|I must decline|I'm sorry, but I can(?:no|')t|as an AI(?: language model)?, I)\b/i;
-const FRUSTRATION = /\b(useless|already (?:told|said|gave)|not what I (?:asked|wanted)|wrong again|still wrong|talk to a (?:human|person|real)|are you (?:even|serious)|this is (?:ridiculous|stupid|absurd)|wtf|ugh+|you keep|stop (?:doing|saying)|for the (?:third|second|last) time|frustrat|annoying|pointless)\b/i;
+const FRUSTRATION = /\b(this is (?:useless|ridiculous|stupid|absurd|pointless)|(?:you(?:'re| are)|that's|so) useless|already (?:told|said|gave) you|not what I (?:asked|wanted)|wrong again|still (?:wrong|broken|not working)|talk to a (?:human|person|real)|are you (?:even|serious)|wtf|ugh+|you keep (?:getting|doing|ignoring|making|breaking)|stop (?:doing|saying) that|for the (?:third|second|last) time|frustrat\w*|so annoying)\b/i;
 const SUCCESS_CLAIM = /\b(all tests (?:pass|passed|are passing)|tests (?:pass|passed|are passing|now pass)|verified (?:that|it works)|successfully (?:deployed|ran|completed)|everything (?:works|is working)|build (?:passes|succeeded))\b/i;
 const TEST_TOOL = /(test|pytest|jest|vitest|mocha|go test|cargo test|npm (?:run )?test|rspec|unittest)/i;
-const TEST_FAIL = /(\bFAIL\b|\bfailed\b|\bfailing\b|AssertionError|Tests?:\s*\d+ failed|exit code [1-9]|Error:)/i;
+const TEST_FAIL = /(\bFAIL\b|\b[1-9]\d* (?:failed|failing|failures?|errors?)\b|\bfail(?:ed|ures?)?:? [1-9]|AssertionError|Traceback \(most recent|exit code [1-9]|\bERR!|\b(?:tests?|build) (?:failed|failing)\b)/;
 const DESTRUCTIVE = /(rm\s+-[a-z]*r[a-z]*f|rm\s+-[a-z]*f[a-z]*r|\bdrop\s+(table|database|schema)\b|\btruncate\s+table\b|git\s+push\s+(?:[^\n]*\s)?(--force|-f)\b|git\s+reset\s+--hard|\bdelete\s+from\s+\w+\s*(?:;|$)|kubectl\s+delete|terraform\s+destroy|chmod\s+-R\s+777|mkfs\.|dd\s+if=|:\(\)\s*\{)/i;
 const UNTRUSTED_TOOL = /(fetch|browse|web|http_get|url|scrape|crawl|read_issue|get_issue|search_issues|issue|email|gmail|inbox|slack|comment|webpage|download)/i;
 const SENSITIVE_ARG = /(\.ssh|id_rsa|id_ed25519|\.env\b|credentials|\.aws|hosts\.yml|secret|private[_ ]?key|api[_-]?key|token|password|\.netrc|keychain)/i;
@@ -126,7 +126,7 @@ export function detect(db: DB, trace: Row, spans: Row[]): Signal[] {
   const cost = trace.cost_usd ?? 0;
   const agentCosts = (db.prepare(`select cost_usd from traces where agent_names = ? and trace_id != ? and start_ns > ? order by start_ns desc limit 200`).all(trace.agent_names ?? '', trace.trace_id, trace.start_ns - 7 * 86400e9) as Row[]).map((r) => r.cost_usd as number);
   const med = median(agentCosts);
-  if (cost >= RUNAWAY_USD || (med != null && agentCosts.length >= 10 && cost > 0.05 && cost > med * 5) || llms.length > 25) {
+  if (cost >= RUNAWAY_USD || (med != null && agentCosts.length >= 10 && cost > 0.05 && cost > med * 5) || llms.length > 80) {
     out.push({
       type: 'runaway_cost',
       severity: cost >= RUNAWAY_USD * 3 || llms.length > 40 ? 'high' : 'medium',
@@ -233,7 +233,10 @@ export function detect(db: DB, trace: Row, spans: Row[]): Signal[] {
     out.push({ type: 'retry_storm', severity: 'medium', key: `${agent}:${llmErrors[0].model}`, title: `${llmErrors.length} failed LLM calls${rate ? ` (${rate} rate limited)` : ''} in one run`, span_id: llmErrors[0].span_id, detail: { errors: llmErrors.length, rate_limited: rate } });
   }
 
-  if (!answer.trim() && root && root.status !== 'error' && llms.length && !tools.length) {
+  const lastLlm = llms[llms.length - 1];
+  const lastOut = lastLlm ? maybeJson(lastLlm.output) : null;
+  const endedOnToolCall = /tool/.test(lastLlm?.finish_reason ?? '') || (Array.isArray(lastOut) && (lastOut as Row[]).some((m) => Array.isArray(m?.tool_calls) && m.tool_calls.length));
+  if (!answer.trim() && root && root.status !== 'error' && llms.length && !tools.length && !endedOnToolCall) {
     out.push({ type: 'empty_output', severity: 'low', key: agent, title: `${agent} produced an empty final answer`, span_id: root.span_id });
   }
 
