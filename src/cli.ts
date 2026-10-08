@@ -3,6 +3,7 @@ import { seedPrices } from './pricing.ts';
 import { startServer, buildRouter } from './server.ts';
 import { startSignalWorker } from './signals.ts';
 import { startEvalWorker } from './evals/index.ts';
+import { startRetention } from './retention.ts';
 
 const PORT = Number(process.env.BLACKBOX_PORT || 7777);
 const OTLP_PORT = Number(process.env.BLACKBOX_OTLP_PORT || 4318);
@@ -13,6 +14,7 @@ async function serve() {
   const router = buildRouter();
   startSignalWorker(db);
   startEvalWorker();
+  startRetention(db);
   await startServer(PORT, router);
   try {
     await startServer(OTLP_PORT, router, { ui: false });
