@@ -44,7 +44,8 @@ export function toolTokens(t: McpToolDef): number {
 }
 
 export class LineSplitter {
-  buf: Buffer = Buffer.alloc(0);
+  parts: Buffer[] = [];
+  size = 0;
   onLine: (line: string) => void;
   max: number;
 
@@ -54,14 +55,25 @@ export class LineSplitter {
   }
 
   push(chunk: Buffer): void {
-    this.buf = this.buf.length ? Buffer.concat([this.buf, chunk]) : chunk;
+    let start = 0;
     let i: number;
-    while ((i = this.buf.indexOf(10)) >= 0) {
-      const line = this.buf.subarray(0, i).toString('utf8').replace(/\r$/, '');
-      this.buf = this.buf.subarray(i + 1);
+    while ((i = chunk.indexOf(10, start)) >= 0) {
+      const piece = chunk.subarray(start, i);
+      const whole = this.parts.length ? Buffer.concat([...this.parts, piece]) : piece;
+      this.parts = [];
+      this.size = 0;
+      start = i + 1;
+      const line = whole.toString('utf8').replace(/\r$/, '');
       if (line.trim()) this.onLine(line);
     }
-    if (this.buf.length > this.max) this.buf = Buffer.alloc(0);
+    if (start < chunk.length) {
+      this.parts.push(chunk.subarray(start));
+      this.size += chunk.length - start;
+      if (this.size > this.max) {
+        this.parts = [];
+        this.size = 0;
+      }
+    }
   }
 }
 
@@ -432,10 +444,10 @@ export function runMcpWrapper(cmd: string[], opts: WrapOptions = {}): Promise<nu
     child.stdin.on('error', () => {});
     child.stdout.on('error', () => {});
     process.stdout.on('error', () => {});
-    process.stdin.on('data', (c: Buffer) => safe(() => fromClient.push(c)));
     process.stdin.pipe(child.stdin);
-    child.stdout.on('data', (c: Buffer) => safe(() => fromServer.push(c)));
+    process.stdin.on('data', (c: Buffer) => setImmediate(() => safe(() => fromClient.push(c))));
     child.stdout.pipe(process.stdout);
+    child.stdout.on('data', (c: Buffer) => setImmediate(() => safe(() => fromServer.push(c))));
     let exited = false;
     const finish = async (code: number) => {
       if (exited) return;
