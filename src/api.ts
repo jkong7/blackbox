@@ -391,11 +391,11 @@ export function toolStats(db: DB, q: URLSearchParams): Row {
     )
     .all(since, ...pp) as Row[];
   for (const r of rows) {
-    const d = (db.prepare(`select duration_ms v from spans where tool_name = ? and start_ns >= ? and duration_ms is not null`).all(r.tool, since) as Row[]).map((x) => x.v);
+    const d = (db.prepare(`select duration_ms v from spans where tool_name = ? and kind in ('tool','mcp','memory') and start_ns >= ? and duration_ms is not null${pc}`).all(r.tool, since, ...pp) as Row[]).map((x) => x.v);
     r.p50_ms = percentile(d, 50);
     r.p95_ms = percentile(d, 95);
     r.error_rate = r.calls ? r.errors / r.calls : 0;
-    const err = db.prepare(`select status_message from spans where tool_name = ? and status = 'error' and status_message is not null order by start_ns desc limit 1`).get(r.tool) as Row | undefined;
+    const err = db.prepare(`select status_message from spans where tool_name = ? and kind in ('tool','mcp','memory') and status = 'error' and status_message is not null and start_ns >= ?${pc} order by start_ns desc limit 1`).get(r.tool, since, ...pp) as Row | undefined;
     r.last_error = err?.status_message ?? null;
   }
   const servers = db
@@ -423,7 +423,8 @@ export function agentStats(db: DB, q: URLSearchParams): Row {
   const rows = db
     .prepare(
       `select agent_name agent, count(distinct trace_id) traces, sum(kind = 'llm') llm_calls, sum(kind in ('tool','mcp','memory')) tool_calls,
-        sum(coalesce(cost_usd,0)) cost_usd, sum(status = 'error') errors, sum(coalesce(input_tokens,0) + coalesce(output_tokens,0)) tokens, max(start_ns) last_ns
+        sum(case when kind in ('llm','embedding') then coalesce(cost_usd,0) else 0 end) cost_usd, sum(status = 'error') errors,
+        sum(case when kind in ('llm','embedding') then coalesce(input_tokens,0) + coalesce(output_tokens,0) else 0 end) tokens, max(start_ns) last_ns
        from spans where agent_name is not null and start_ns >= ?${pc} group by agent_name order by traces desc`,
     )
     .all(since, ...pp) as Row[];

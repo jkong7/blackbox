@@ -56,6 +56,7 @@ create table if not exists spans (
   updated_at integer not null
 );
 create index if not exists spans_trace on spans(trace_id, start_ns);
+create index if not exists spans_parent on spans(parent_id) where parent_id is not null;
 create index if not exists spans_start on spans(start_ns desc);
 create index if not exists spans_session on spans(session_id, start_ns);
 create index if not exists spans_kind on spans(kind, start_ns desc);

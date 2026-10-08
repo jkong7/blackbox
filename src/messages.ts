@@ -188,9 +188,13 @@ export function lastUserText(msgs: Message[] | null): string | null {
   if (!msgs) return null;
   for (let i = msgs.length - 1; i >= 0; i--) {
     const m = msgs[i];
-    if (m.role === 'user' && m.content && m.content.trim()) return m.content;
+    const t = m && m.content != null ? textOf(m.content) : '';
+    if (m?.role === 'user' && t.trim()) return t;
   }
-  for (let i = msgs.length - 1; i >= 0; i--) if (msgs[i].content) return msgs[i].content!;
+  for (let i = msgs.length - 1; i >= 0; i--) {
+    const t = msgs[i]?.content != null ? textOf(msgs[i].content) : '';
+    if (t) return t;
+  }
   return null;
 }
 
@@ -198,8 +202,10 @@ export function assistantText(msgs: Message[] | null): string | null {
   if (!msgs) return null;
   const parts: string[] = [];
   for (const m of msgs) {
-    if (m.content) parts.push(m.content);
-    if (m.tool_calls?.length) parts.push(m.tool_calls.map((t) => `→ ${t.name}(${clip(typeof t.arguments === 'string' ? t.arguments : JSON.stringify(t.arguments ?? {}), 80)})`).join(' '));
+    if (!m) continue;
+    const t = m.content != null ? textOf(m.content) : '';
+    if (t) parts.push(t);
+    if (Array.isArray(m.tool_calls) && m.tool_calls.length) parts.push(m.tool_calls.map((t) => `→ ${t.name}(${clip(typeof t.arguments === 'string' ? t.arguments : JSON.stringify(t.arguments ?? {}), 80)})`).join(' '));
   }
   return parts.join(' ') || null;
 }
