@@ -3,6 +3,14 @@ import type { DB } from '../db.ts';
 type Row = Record<string, any>;
 
 const TABLES = `
+create table if not exists judge_spend (
+  id integer primary key autoincrement,
+  created_at integer not null,
+  cost_usd real not null,
+  provider text,
+  model text
+);
+create index if not exists judge_spend_at on judge_spend(created_at);
 create table if not exists explanations (
   trace_id text primary key,
   json text not null,

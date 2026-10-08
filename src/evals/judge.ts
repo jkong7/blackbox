@@ -101,11 +101,13 @@ function sumSince(db: DB, sql: string, since: number): number {
 
 export function spendToday(db: DB = getDb()): number {
   const since = startOfToday();
-  return (
-    sumSince(db, "select coalesce(sum(cost_usd),0) v from scores where source = 'judge' and created_at >= ?", since) +
-    sumSince(db, 'select coalesce(sum(cost_usd),0) v from explanations where created_at >= ?', since) +
-    sumSince(db, "select coalesce(sum(r.cost_usd),0) v from experiment_runs r join experiments e on e.id = r.experiment_id where r.created_at >= ? and e.target like '%\"llm\"%'", since)
-  );
+  return sumSince(db, 'select coalesce(sum(cost_usd),0) v from judge_spend where created_at >= ?', since);
+}
+
+export function recordSpend(db: DB, cost: number, provider: string, model: string | null): void {
+  try {
+    db.prepare('insert into judge_spend(created_at, cost_usd, provider, model) values(?,?,?,?)').run(Date.now(), cost, provider, model);
+  } catch {}
 }
 
 export function assertBudget(db: DB = getDb()): void {
@@ -151,11 +153,13 @@ export async function complete(req: CompleteRequest, db: DB = getDb()): Promise<
   await acquire();
   const t0 = Date.now();
   try {
+    assertBudget(db);
     const model = req.model || defaultModel(provider);
     let out: Omit<CompleteResult, 'latency_ms' | 'provider'>;
     if (provider === 'anthropic') out = await anthropicCall(req, model, db);
     else if (provider === 'claude-cli') out = await cliCall(req, model);
     else out = mockCall(req, model);
+    recordSpend(db, out.cost_usd ?? 0, provider, out.model);
     return { ...out, provider, latency_ms: Date.now() - t0 };
   } finally {
     release();

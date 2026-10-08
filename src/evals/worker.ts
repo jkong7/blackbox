@@ -163,14 +163,23 @@ export function backoffMs(attempts: number): number {
 }
 
 export async function runJob(db: DB, job: Row): Promise<void> {
+  const beat = setInterval(() => {
+    try {
+      db.prepare(`update eval_jobs set lease_until = ? where id = ? and status = 'running'`).run(nowMs() + LEASE_MS, job.id);
+    } catch {}
+  }, LEASE_MS / 3);
   try {
     const ev = getEvaluator(db, job.evaluator_id);
     if (!ev) return finish(db, job.id, 'failed', 'evaluator not found');
-    if (job.rule_id && job.trace_id) {
+    if (job.rule_id) {
       const rule = db.prepare('select * from eval_rules where id = ?').get(job.rule_id) as Row | undefined;
+      if (!rule || !rule.enabled) return finish(db, job.id, 'skipped', 'rule disabled or deleted');
+    }
+    if (job.rule_id && job.trace_id) {
+      const rule = db.prepare('select * from eval_rules where id = ?').get(job.rule_id) as Row;
       const trace = db.prepare('select * from traces where trace_id = ?').get(job.trace_id) as Row | undefined;
       if (!trace) return finish(db, job.id, 'failed', 'trace not found');
-      if (rule && !matchesFilter(db, parseRule(rule).filter, trace)) return finish(db, job.id, 'skipped', 'trace no longer matches the rule filter');
+      if (!matchesFilter(db, parseRule(rule).filter, trace)) return finish(db, job.id, 'skipped', 'trace no longer matches the rule filter');
     }
     await runEvaluator(db, ev, { trace_id: job.trace_id, span_id: job.span_id, session_id: job.session_id, rule_id: job.rule_id, experiment_id: job.experiment_id, run_id: job.run_id });
     finish(db, job.id, 'done', null);
@@ -178,6 +187,8 @@ export async function runJob(db: DB, job: Row): Promise<void> {
     const msg = String(e?.message ?? e);
     if (e instanceof BudgetError || job.attempts >= MAX_ATTEMPTS || (e?.status && e.status < 500)) return finish(db, job.id, 'failed', msg);
     db.prepare(`update eval_jobs set status = 'queued', error = ?, lease_until = null, run_after = ? where id = ?`).run(msg, nowMs() + backoffMs(job.attempts), job.id);
+  } finally {
+    clearInterval(beat);
   }
 }
 

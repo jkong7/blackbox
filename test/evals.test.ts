@@ -381,10 +381,10 @@ test('explain stores and serves a root cause analysis', async () => {
 
 test('budget cap fails judge jobs with a clear error', async () => {
   load(agentTrace('t-budget'));
-  db.prepare(`insert into scores(id, trace_id, name, value, source, cost_usd, created_at) values('spent','t-budget','x',1,'judge',5,?)`).run(nowMs());
+  db.prepare(`insert into judge_spend(created_at, cost_usd, provider, model) values(?, 5, 'mock', 'mock')`).run(nowMs());
   await assert.rejects(runEvaluator(db, getEvaluator(db, 'task_completion')!, { trace_id: 't-budget' }), /daily spend cap/);
   const code = await runEvaluator(db, getEvaluator(db, 'no_error')!, { trace_id: 't-budget' });
   assert.equal(code.label, 'pass');
-  db.prepare(`delete from scores where id = 'spent'`).run();
+  db.prepare(`delete from judge_spend where cost_usd = 5`).run();
   assert.equal(builtinId('x').length, 19);
 });
