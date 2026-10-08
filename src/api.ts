@@ -5,6 +5,7 @@ import { ingestSpanRows, flush } from './ingest.ts';
 import { blankSpan } from './normalize.ts';
 import { invalidatePrices } from './pricing.ts';
 import { deleteTraceText } from './fts.ts';
+import { normalizeMessages } from './messages.ts';
 import { percentile, hexId, nowNs, toJson, num, str, maybeJson } from './util.ts';
 import type { SpanRow } from './types.ts';
 import { KINDS } from './types.ts';
@@ -504,8 +505,8 @@ function spanFromApi(o: Row): SpanRow {
     cost_usd: num(o.cost_usd),
     ttft_ms: num(o.ttft_ms),
     finish_reason: str(o.finish_reason),
-    input: toJson(o.input),
-    output: toJson(o.output),
+    input: toJson(o.kind === 'llm' ? normalizeMessages(o.input) ?? o.input : o.input),
+    output: toJson(o.kind === 'llm' ? normalizeMessages(o.output) ?? o.output : o.output),
     attributes: o.attributes ? JSON.stringify(o.attributes) : null,
   });
 }

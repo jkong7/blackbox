@@ -7,7 +7,8 @@ import { normalizeSpan } from './normalize.ts';
 import { costFor } from './pricing.ts';
 import { indexSpanText } from './fts.ts';
 import { emit } from './bus.ts';
-import { clip, nowMs, str } from './util.ts';
+import { clip, nowMs, str, maybeJson } from './util.ts';
+import { outputPreviewOf } from './messages.ts';
 import { claudeCodeLogToSpans, enrichClaudeCodeTrace } from './sources/claudeCode.ts';
 
 interface Pending {
@@ -164,6 +165,7 @@ export function rollupTrace(db: DB, traceId: string, now = nowMs()): string | nu
   }
   const hasCC = db.prepare("select 1 from spans where trace_id = ? and source = 'claude-code' limit 1").get(traceId);
   if (hasCC) enrichClaudeCodeTrace(db, traceId);
+  backfillToolResults(db, traceId);
   const agg = db
     .prepare(
       `select min(start_ns) start_ns, max(coalesce(end_ns, start_ns)) end_ns, count(*) span_count,
@@ -227,6 +229,27 @@ export function rollupTrace(db: DB, traceId: string, now = nowMs()): string | nu
   );
   if (agg.session_id) db.prepare('update spans set session_id = ? where trace_id = ? and session_id is null').run(agg.session_id, traceId);
   return agg.session_id;
+}
+
+export function backfillToolResults(db: DB, traceId: string): void {
+  const missing = db.prepare("select span_id, tool_call_id from spans where trace_id = ? and kind in ('tool','mcp','memory') and output is null and tool_call_id is not null").all(traceId) as { span_id: string; tool_call_id: string }[];
+  if (!missing.length) return;
+  const want = new Map(missing.map((m) => [m.tool_call_id, m.span_id]));
+  const llms = db.prepare("select input from spans where trace_id = ? and kind = 'llm' and input is not null order by start_ns desc").all(traceId) as { input: string }[];
+  const set = db.prepare('update spans set output = ?, output_preview = ? where span_id = ?');
+  for (const l of llms) {
+    if (!want.size) break;
+    const msgs = maybeJson(l.input);
+    if (!Array.isArray(msgs)) continue;
+    for (const m of msgs as Record<string, any>[]) {
+      const sid = m?.role === 'tool' && m.tool_call_id ? want.get(m.tool_call_id) : undefined;
+      if (!sid) continue;
+      const text = typeof m.content === 'string' ? m.content : JSON.stringify(m.content ?? '');
+      set.run(text, outputPreviewOf(text), sid);
+      indexSpanText(db, sid);
+      want.delete(m.tool_call_id);
+    }
+  }
 }
 
 export function rollupSession(db: DB, sessionId: string, now = nowMs()): void {

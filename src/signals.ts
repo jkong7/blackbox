@@ -98,7 +98,10 @@ export function detect(db: DB, trace: Row, spans: Row[]): Signal[] {
     });
   }
 
+  const byId = new Map(spans.map((s) => [s.span_id, s]));
   for (const s of spans.filter((x) => x.status === 'error')) {
+    const parent = s.parent_id ? byId.get(s.parent_id) : null;
+    if (parent && parent.status === 'error' && (parent.status_message ?? '') === (s.status_message ?? '') && parent.kind !== 'agent') continue;
     const what = s.tool_name ?? s.model ?? s.name;
     out.push({
       type: 'error_spans',
