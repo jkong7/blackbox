@@ -1,0 +1,138 @@
+.fmenu {
+  position: relative;
+}
+
+.fchip {
+  padding: 0;
+  height: 24px;
+  border-radius: 12px;
+  overflow: hidden;
+  gap: 0;
+}
+
+.fchip button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  height: 100%;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+}
+
+.fchip-main {
+  padding: 0 9px;
+}
+
+.fchip-x {
+  padding: 0 7px 0 2px;
+  opacity: 0.7;
+}
+
+.fchip-x:hover {
+  opacity: 1;
+}
+
+.fchip:not(.accent):hover {
+  border-color: var(--border-strong);
+}
+
+.fmenu-pop {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 40;
+  width: 260px;
+  background: var(--surface);
+  border-radius: 8px;
+  box-shadow: var(--shadow-pop);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fmenu-list {
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.fmenu-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border-radius: 5px;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.fmenu-item.on {
+  background: var(--surface-3);
+}
+
+.fmenu-check {
+  width: 14px;
+  display: inline-flex;
+  color: var(--accent);
+  flex: none;
+}
+
+.trace-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.trace-table td.preview {
+  max-width: 0;
+  width: 100%;
+  min-width: 200px;
+}
+
+.trace-table .name-cell {
+  max-width: 220px;
+}
+
+.steps {
+  display: inline-flex;
+  gap: 8px;
+  color: var(--text-2);
+}
+
+.steps span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.steps i {
+  width: 6px;
+  height: 6px;
+  border-radius: 2px;
+  display: inline-block;
+}
+
+.sentinel {
+  height: 1px;
+}
+
+.table-foot {
+  padding: 10px 12px;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.new-rows {
+  position: sticky;
+  top: 56px;
+  z-index: 5;
+  align-self: center;
+}
