@@ -1,0 +1,150 @@
+.an-picker {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+  gap: 16px;
+  align-items: start;
+}
+
+.an-add-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.an-review {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 1100px) {
+  .an-picker,
+  .an-review {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.an-verdict {
+  position: sticky;
+  top: 64px;
+}
+
+.an-progress {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+}
+
+.an-meta {
+  gap: 6px;
+  font-size: 12px;
+  padding: 0 2px;
+}
+
+.an-text {
+  max-height: 320px;
+  overflow-y: auto;
+  font-size: 13px;
+}
+
+.an-reason {
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.an-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.an-buttons .btn {
+  height: 40px;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.an-pass {
+  border-color: color-mix(in srgb, var(--good) 45%, var(--border)) !important;
+  color: var(--good) !important;
+  background: var(--good-soft) !important;
+}
+
+.an-pass:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--good) 22%, transparent) !important;
+}
+
+.an-fail {
+  border-color: color-mix(in srgb, var(--bad) 45%, var(--border)) !important;
+  color: var(--bad) !important;
+  background: var(--bad-soft) !important;
+}
+
+.an-fail:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--bad) 22%, transparent) !important;
+}
+
+.an-traj {
+  max-height: 520px;
+  overflow-y: auto;
+}
+
+.an-step {
+  border-bottom: 1px solid var(--border);
+}
+
+.an-step:last-child {
+  border-bottom: 0;
+}
+
+.an-step.err {
+  background: color-mix(in srgb, var(--bad) 5%, transparent);
+}
+
+.an-step-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  min-width: 0;
+}
+
+.an-step-row:hover {
+  background: var(--hover);
+}
+
+.an-step-i {
+  width: 18px;
+  text-align: right;
+  font-size: 11px;
+  flex: none;
+}
+
+.an-step-name {
+  flex: none;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.an-step-detail {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+}
+
+.an-step-meta {
+  flex: none;
+  font-size: 11.5px;
+}
+
+.an-step-body {
+  padding: 0 12px 8px 64px;
+  max-height: 240px;
+  overflow-y: auto;
+}
